@@ -19,5 +19,5 @@
 #include <thread>
 #include <limits.h>
 #include <commdlg.h>
-#include <map>
-#include <iterator>
+#include <vector>
+#include <list>

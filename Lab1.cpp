@@ -2,6 +2,8 @@
 // https://forums.codeguru.com/showthread.php?500841-Set-my-window-position-at-screen-center
 // https://docs.microsoft.com/ru-ru/windows/win32/api/winuser/nf-winuser-getsystemmetrics?redirectedfrom=MSDN
 // https://docs.microsoft.com/en-us/windows/win32/winmsg/using-windows
+// https://stackoverflow.com/questions/14989062/set-a-window-to-be-topmost
+// 
 
 #include "framework.h"
 #include "Lab1.h"
@@ -9,19 +11,24 @@ using namespace std;
 
 #define MAX_LOADSTRING 100
 
-typedef struct lowestChildWindow {
+typedef struct cWin {
+	HWND childWin;
+	unsigned int letter;
+	unsigned int ySpeed;
+} cWin;
+
+typedef struct lowestWin {
 	HWND childWin;
 	int yPos;
-} lowestChildWindow;
+} lowestWin;
 
 typedef struct wCaption {
 	unsigned int missed;
 	unsigned int wrongKeys;
 } wCaption;
 
-
-
-lowestChildWindow lcw;
+vector<cWin> cWindows;
+vector<lowestWin> lowestCWindows(26);
 wCaption wc;
 
 // Global Variables:
@@ -31,6 +38,7 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 TCHAR szChildClass[] = TEXT("myChildClass");
 TCHAR s[26];
 WCHAR title[256];
+bool pauseTimer = false;
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE, int);
@@ -73,7 +81,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 	wcex.lpszClassName = szChildClass;
 	RegisterClassEx(&wcex);
-
 	// Perform application initialization:
 	if (!InitInstance(hInstance, nCmdShow))
 	{
@@ -149,15 +156,22 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	HWND hChild;
+	HDC hDC, hCompatibleDC;
+	PAINTSTRUCT PaintStruct;
+	HANDLE hBitmap, hOldBitmap;
+	RECT Rect;
+	BITMAP Bitmap;
 	switch (message)
 	{
 	case WM_CREATE:
 	{
+		SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		SetTimer(hWnd, 5, 1000, NULL);
 		wc.missed = 0;
 		wc.wrongKeys = 0;
 		_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
 		SetWindowText(hWnd, title);
+
 		for (int i = 0, j = 97; i < 26; i++, j++) {
 			s[i] = j;
 		}
@@ -165,19 +179,48 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_TIMER: {
 		if (wParam == 5) {
+			unsigned int randLetter;
+			rand_s(&randLetter);
+			randLetter = (unsigned int)((double)randLetter / ((double)UINT_MAX + 1) * 26);
+			unsigned int ySpeed;
+			rand_s(&ySpeed);
+			ySpeed = (unsigned int)((double)ySpeed / ((double)UINT_MAX + 1) * 35.0) + 5;
+
+			cWin cw;
 			RECT rc;
 			GetWindowRect(hWnd, &rc);
-			int width = rc.right - rc.left - 25;
+			int width = rc.right - rc.left - 50;
 			unsigned int xPos;
 			rand_s(&xPos);
 			xPos = (unsigned int)((double)xPos / ((double)UINT_MAX + 1) * width) + 1;
-			CreateWindow(szChildClass, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, xPos, 0, 25, 25, hWnd, NULL, hInst, NULL);
+			hChild = CreateWindow(szChildClass, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, xPos, 0, 25, 25, hWnd, NULL, hInst, NULL);
+			cw.childWin = hChild;
+			cw.letter = randLetter;
+			cw.ySpeed = ySpeed;
+
+			cWindows.push_back(cw);
 		}
 		unsigned int delay;
 		rand_s(&delay);
 		delay = (unsigned int)((double)delay / ((double)UINT_MAX + 1) * 1000.0) + 250;
 		KillTimer(hWnd, 5);
 		SetTimer(hWnd, 5, delay, NULL);
+		break;
+	}
+	case WM_CHAR:
+	{
+		if ((int)wParam >= 97 && (int)wParam <= 122) {
+			if (lowestCWindows[(int)wParam - 97].childWin) {
+				DestroyWindow(lowestCWindows[(int)wParam - 97].childWin);
+				lowestCWindows[(int)wParam - 97].childWin = NULL;
+				lowestCWindows[(int)wParam - 97].yPos = 0;
+			}
+			else {
+				wc.wrongKeys++;
+				_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
+				SetWindowText(hWnd, title);
+			}
+		}
 		break;
 	}
 	case WM_RBUTTONDOWN:
@@ -193,26 +236,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		InsertMenu(hPopupMenu, 0, MF_STRING | MF_DISABLED, IDM_STRETCH, L"Stretch\tCtrl+S");
 		SetForegroundWindow(hWnd);
 		TrackPopupMenu(hPopupMenu, TPM_LEFTBUTTON, cursor.x, cursor.y, 0, hWnd, NULL);
+		break;
 	}
-	/*case WM_CHAR:
-		_stprintf_s(buf, bufSize, _T(" WM_CHAR : %c"), (TCHAR)wParam);
-		break;*/
-	case WM_KEYDOWN:
-	{
-		switch (wParam)
-		{
-		case VK_SPACE:
-		{
-			DestroyWindow(lcw.childWin);
-			lcw.yPos = 0;
-			break;
+	case WM_KILLFOCUS:
+		KillTimer(hWnd, 5);
+		for (auto it : cWindows) {
+			SendMessage(it.childWin, 666, NULL, NULL);
 		}
-		default:
-			wc.wrongKeys++;
-			_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
-			SetWindowText(hWnd, title);
+		break;
+	case WM_SETFOCUS:
+		SetTimer(hWnd, 5, 1000, NULL);
+		for (auto it : cWindows) {
+			SendMessage(it.childWin, 6666, NULL, NULL);
 		}
-	}
+		break;
 	case WM_COMMAND:
 	{
 		int wmId = LOWORD(wParam);
@@ -226,9 +263,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DestroyWindow(hWnd);
 			break;
 		case IDM_NEWGAME:
-			while (lcw.childWin) {
-				DestroyWindow(lcw.childWin);
+			for (auto it : cWindows) {
+				DestroyWindow(it.childWin);
 			}
+			cWindows.clear();
+			wc.missed = 0;
+			wc.wrongKeys = 0;
+			_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
+			SetWindowText(hWnd, title);
 			break;
 		case IDM_BITMAP:
 			OPENFILENAME ofn;       // common dialog box structure
@@ -256,12 +298,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (GetOpenFileName(&ofn) == TRUE) {
 				hf = CreateFile(ofn.lpstrFile, GENERIC_READ, 0, (LPSECURITY_ATTRIBUTES)NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
 				HBITMAP hBMP = (HBITMAP)LoadImage(NULL, ofn.lpstrFile, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-				InvalidateRect(hWnd, NULL, TRUE);
+
+				break;
 			}
-			
+
 			break;
 		case IDM_PAUSE:
-			break;
+			if (pauseTimer == false) {
+				KillTimer(hWnd, 5);
+				for (auto it : cWindows) {
+					SendMessage(it.childWin, 666, NULL, NULL);
+				}
+				pauseTimer = true;
+				break;
+			}
+			else {
+				SetTimer(hWnd, 5, 1000, NULL);
+				for (auto it : cWindows) {
+					SendMessage(it.childWin, 6666, NULL, NULL);
+				}
+				pauseTimer = false;
+				break;
+			}
 		case IDM_COLOR:
 		{
 			CHOOSECOLOR cc;                 // common dialog box structure 
@@ -280,7 +338,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (ChooseColor(&cc) == TRUE)
 			{
 				hbrush = CreateSolidBrush(cc.rgbResult);
-				rgbCurrent = cc.rgbResult;
 				SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR(hbrush)));
 				InvalidateRect(hWnd, NULL, TRUE);
 			}
@@ -302,40 +359,63 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-	unsigned int randLetter;
-	rand_s(&randLetter);
-	randLetter = (unsigned int)((double)randLetter / ((double)UINT_MAX + 1) * 26);
+	int letter = 0, ySpeed = rand() % 25;
+	for (auto it : cWindows) {
+		if (it.childWin == hWnd) {
+			letter = it.letter;
+			ySpeed = it.ySpeed;
+		}
+	}
 	switch (message) {
 	case WM_CREATE:
 	{
-		//lcw[randLetter].childWin = hWnd;
-		unsigned int ySpeed;
-		rand_s(&ySpeed);
-		ySpeed = (unsigned int)((double)ySpeed / ((double)UINT_MAX + 1) * 35.0) + 5;
-
 		SetTimer(hWnd, 1, ySpeed, NULL);
 	}
 	case WM_TIMER:
 	{
 		if (wParam == 1) // check timer id
 		{
+
 			RECT rc, pRC;
 			GetClientRect(GetParent(hWnd), &pRC);
 			GetClientRect(hWnd, &rc);
 			MapWindowPoints(hWnd, GetParent(hWnd), (LPPOINT)&rc, 2);
 			int yPos = rc.top + 1;
+			//if (yPos > cWindows[rl].yPos) {
+			//	cWindows[rl].childWin = hWnd;
+			//	cWindows[rl].yPos = yPos;
+			//}
+			if (lowestCWindows[letter].childWin) {
+				if (yPos > lowestCWindows[letter].yPos) {
+					lowestCWindows[letter].childWin = hWnd;
+					lowestCWindows[letter].yPos = yPos;
+				}
+			}
+			else {
+				lowestCWindows[letter].childWin = hWnd;
+				lowestCWindows[letter].yPos = yPos;
+			}
 			if (yPos >= pRC.bottom) {
 				wc.missed++;
 				_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
 				SetWindowText(GetParent(hWnd), title);
+				lowestCWindows[letter].childWin = NULL;
+				lowestCWindows[letter].yPos = yPos;
 				DestroyWindow(hWnd);
 			}
-			if (yPos > lcw.yPos) {
-				lcw.childWin = hWnd;
-				lcw.yPos = yPos;
-			}
+
 			MoveWindow(hWnd, rc.left, yPos, 25, 25, true);
 		}
+		break;
+	}
+	case 6666:
+	{
+		SetTimer(hWnd, 1, ySpeed, NULL);
+		break;
+	}
+	case 666:
+	{
+		KillTimer(hWnd, 1);
 		break;
 	}
 	case WM_PAINT:
@@ -344,7 +424,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 		HDC hdc = BeginPaint(hWnd, &ps);
 		SetBkColor(hdc, TRANSPARENT);
 		SetTextColor(hdc, RGB(211, 211, 211));
-		TextOut(hdc, 9, 4, &s[randLetter], 1);
+		TextOut(hdc, 9, 4, &s[letter], 1);
 		EndPaint(hWnd, &ps);
 	}
 	}
