@@ -13,6 +13,10 @@
 #define IDC_LAB1                        109
 #define IDM_NEWGAME                     123
 #define IDM_PAUSE                       124
+#define IDM_BITMAP						125
+#define IDM_TILE						126
+#define IDM_STRETCH						127
+#define IDM_COLOR						129
 #define IDR_MAINFRAME                   128
 #define ID_FILE_NEWGAME                 32773
 #define ID_FILE_PAUSE                   32774

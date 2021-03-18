@@ -14,7 +14,15 @@ typedef struct lowestChildWindow {
 	int yPos;
 } lowestChildWindow;
 
+typedef struct wCaption {
+	unsigned int missed;
+	unsigned int wrongKeys;
+} wCaption;
+
+
+
 lowestChildWindow lcw;
+wCaption wc;
 
 // Global Variables:
 HINSTANCE hInst;                                // current instance
@@ -22,6 +30,7 @@ WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 TCHAR szChildClass[] = TEXT("myChildClass");
 TCHAR s[26];
+WCHAR title[256];
 
 // Forward declarations of functions included in this code module:
 BOOL                InitInstance(HINSTANCE, int);
@@ -53,7 +62,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	wcex.hInstance = hInstance;
 	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB1));
 	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.hbrBackground = (HBRUSH)(COLOR_INACTIVECAPTION);
 	wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB1);
 	wcex.lpszClassName = szWindowClass;
 	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
@@ -112,8 +121,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	int width = GetSystemMetrics(SM_CXSCREEN), height = GetSystemMetrics(SM_CYSCREEN);
 
-	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-		width / 4, height / 4, width / 2, height / 2, nullptr, nullptr, hInstance, nullptr);
+	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, width / 4, height / 4, width / 2, height / 2, nullptr, nullptr, hInstance, nullptr);
 	SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
 	if (!hWnd)
@@ -146,7 +154,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CREATE:
 	{
 		SetTimer(hWnd, 5, 1000, NULL);
-
+		wc.missed = 0;
+		wc.wrongKeys = 0;
+		_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
+		SetWindowText(hWnd, title);
 		for (int i = 0, j = 97; i < 26; i++, j++) {
 			s[i] = j;
 		}
@@ -154,9 +165,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_TIMER: {
 		if (wParam == 5) {
-			unsigned int randLetter;
-			rand_s(&randLetter);
-			randLetter = (unsigned int)((double)randLetter / ((double)UINT_MAX + 1) * 26);
 			RECT rc;
 			GetWindowRect(hWnd, &rc);
 			int width = rc.right - rc.left - 25;
@@ -172,6 +180,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		SetTimer(hWnd, 5, delay, NULL);
 		break;
 	}
+	case WM_RBUTTONDOWN:
+	{
+		wc.wrongKeys--;
+		HMENU hPopupMenu = CreatePopupMenu();
+		POINT cursor;
+		GetCursorPos(&cursor);
+		InsertMenu(hPopupMenu, 0, MF_STRING, IDM_COLOR, L"Color...\tCtrl+C");
+		InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_SEPARATOR, NULL, NULL);
+		InsertMenu(hPopupMenu, 0, MF_STRING, IDM_BITMAP, L"Bitmap...\tCtrl+B");
+		InsertMenu(hPopupMenu, 0, MF_STRING | MF_DISABLED, IDM_TILE, L"Tile\tCtrl+T");
+		InsertMenu(hPopupMenu, 0, MF_STRING | MF_DISABLED, IDM_STRETCH, L"Stretch\tCtrl+S");
+		SetForegroundWindow(hWnd);
+		TrackPopupMenu(hPopupMenu, TPM_LEFTBUTTON, cursor.x, cursor.y, 0, hWnd, NULL);
+	}
+	/*case WM_CHAR:
+		_stprintf_s(buf, bufSize, _T(" WM_CHAR : %c"), (TCHAR)wParam);
+		break;*/
 	case WM_KEYDOWN:
 	{
 		switch (wParam)
@@ -182,6 +207,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			lcw.yPos = 0;
 			break;
 		}
+		default:
+			wc.wrongKeys++;
+			_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
+			SetWindowText(hWnd, title);
 		}
 	}
 	case WM_COMMAND:
@@ -201,8 +230,63 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				DestroyWindow(lcw.childWin);
 			}
 			break;
+		case IDM_BITMAP:
+			OPENFILENAME ofn;       // common dialog box structure
+			char szFile[260];       // buffer for file name
+			HANDLE hf;              // file handle
+
+			// Initialize OPENFILENAME
+			ZeroMemory(&ofn, sizeof(ofn));
+			ofn.lStructSize = sizeof(ofn);
+			ofn.hwndOwner = hWnd;
+			ofn.lpstrFile = (LPWSTR)szFile;
+			// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
+			// use the contents of szFile to initialize itself.
+			ofn.lpstrFile[0] = '\0';
+			ofn.nMaxFile = sizeof(szFile);
+			ofn.lpstrFilter = L"Bitmap files (*.bmp)\0*.bmp";
+			ofn.nFilterIndex = 1;
+			ofn.lpstrFileTitle = NULL;
+			ofn.nMaxFileTitle = 0;
+			ofn.lpstrInitialDir = NULL;
+			ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+			// Display the Open dialog box. 
+
+			if (GetOpenFileName(&ofn) == TRUE) {
+				hf = CreateFile(ofn.lpstrFile, GENERIC_READ, 0, (LPSECURITY_ATTRIBUTES)NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
+				HBITMAP hBMP = (HBITMAP)LoadImage(NULL, ofn.lpstrFile, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+				InvalidateRect(hWnd, NULL, TRUE);
+			}
+			
+			break;
 		case IDM_PAUSE:
 			break;
+		case IDM_COLOR:
+		{
+			CHOOSECOLOR cc;                 // common dialog box structure 
+			static COLORREF acrCustClr[16]; // array of custom colors 
+			HBRUSH hbrush;                  // brush handle
+			static DWORD rgbCurrent;        // initial color selection
+
+			// Initialize CHOOSECOLOR 
+			ZeroMemory(&cc, sizeof(cc));
+			cc.lStructSize = sizeof(cc);
+			cc.hwndOwner = hWnd;
+			cc.lpCustColors = (LPDWORD)acrCustClr;
+			cc.rgbResult = rgbCurrent;
+			cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+
+			if (ChooseColor(&cc) == TRUE)
+			{
+				hbrush = CreateSolidBrush(cc.rgbResult);
+				rgbCurrent = cc.rgbResult;
+				SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR(hbrush)));
+				InvalidateRect(hWnd, NULL, TRUE);
+			}
+
+			break;
+		}
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -218,6 +302,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+	unsigned int randLetter;
+	rand_s(&randLetter);
+	randLetter = (unsigned int)((double)randLetter / ((double)UINT_MAX + 1) * 26);
 	switch (message) {
 	case WM_CREATE:
 	{
@@ -225,6 +312,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 		unsigned int ySpeed;
 		rand_s(&ySpeed);
 		ySpeed = (unsigned int)((double)ySpeed / ((double)UINT_MAX + 1) * 35.0) + 5;
+
 		SetTimer(hWnd, 1, ySpeed, NULL);
 	}
 	case WM_TIMER:
@@ -237,6 +325,9 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 			MapWindowPoints(hWnd, GetParent(hWnd), (LPPOINT)&rc, 2);
 			int yPos = rc.top + 1;
 			if (yPos >= pRC.bottom) {
+				wc.missed++;
+				_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
+				SetWindowText(GetParent(hWnd), title);
 				DestroyWindow(hWnd);
 			}
 			if (yPos > lcw.yPos) {
@@ -253,7 +344,7 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 		HDC hdc = BeginPaint(hWnd, &ps);
 		SetBkColor(hdc, TRANSPARENT);
 		SetTextColor(hdc, RGB(211, 211, 211));
-		TextOut(hdc, 9, 4, &s[0], 1);
+		TextOut(hdc, 9, 4, &s[randLetter], 1);
 		EndPaint(hWnd, &ps);
 	}
 	}
