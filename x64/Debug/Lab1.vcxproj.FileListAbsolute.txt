@@ -1,0 +1,2 @@
+D:\Code\CS++\WinAPI_Lab1\x64\Debug\Lab1.exe
+D:\Code\CS++\WinAPI_Lab1\x64\Debug\Lab1.pdb
