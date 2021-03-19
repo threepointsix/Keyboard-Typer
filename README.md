@@ -1,4 +1,4 @@
-# Keyboard-Tetris
+# Keyboard typer
 WinAPI game
 
 ## Mistakes in both applications
