@@ -3,7 +3,9 @@
 // https://docs.microsoft.com/ru-ru/windows/win32/api/winuser/nf-winuser-getsystemmetrics?redirectedfrom=MSDN
 // https://docs.microsoft.com/en-us/windows/win32/winmsg/using-windows
 // https://stackoverflow.com/questions/14989062/set-a-window-to-be-topmost
-// 
+// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-insertmenua
+// https://docs.microsoft.com/en-us/windows/win32/dlgbox/using-common-dialog-boxes
+// https://stackoverflow.com/questions/18034975/how-do-i-find-position-of-a-win32-control-window-relative-to-its-parent-window
 
 #include "framework.h"
 #include "Lab1.h"
@@ -35,9 +37,9 @@ wCaption wc;
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
-TCHAR szChildClass[] = TEXT("myChildClass");
-TCHAR s[26];
-WCHAR title[256];
+TCHAR szChildClass[] = TEXT("myChildClass");    // Children class name
+TCHAR s[26];									// Letters [a, z]
+WCHAR title[256];                               // Title with captions
 bool pauseTimer = false;
 
 // Forward declarations of functions included in this code module:
@@ -45,6 +47,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK	ChildWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+unsigned int		rand(double lowerBound, double upperBound);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -54,9 +57,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(hPrevInstance);
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	// TODO: Place code here.
-
-	// Initialize global strings
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
 	LoadStringW(hInstance, IDC_LAB1, szWindowClass, MAX_LOADSTRING);
 	WNDCLASSEXW wcex;
@@ -81,7 +81,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 	wcex.lpszClassName = szChildClass;
 	RegisterClassEx(&wcex);
-	// Perform application initialization:
+
 	if (!InitInstance(hInstance, nCmdShow))
 	{
 		return FALSE;
@@ -91,7 +91,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	MSG msg;
 
-	// Main message loop:
 	while (GetMessage(&msg, nullptr, 0, 0))
 	{
 		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
@@ -104,57 +103,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	return (int)msg.wParam;
 }
 
-
-
-//
-//  FUNCTION: MyRegisterClass()
-//
-//  PURPOSE: Registers the window class.
-//
-
-//
-//   FUNCTION: InitInstance(HINSTANCE, int)
-//
-//   PURPOSE: Saves instance handle and creates main window
-//
-//   COMMENTS:
-//
-//        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
-//
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
-{
+BOOL InitInstance(HINSTANCE hInstance, int nCmdShow) {
 	hInst = hInstance; // Store instance handle in our global variable
-
 	int width = GetSystemMetrics(SM_CXSCREEN), height = GetSystemMetrics(SM_CYSCREEN);
-
 	HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, width / 4, height / 4, width / 2, height / 2, nullptr, nullptr, hInstance, nullptr);
 	SetWindowPos(hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-
-	if (!hWnd)
-	{
-		return FALSE;
-	}
-
+	if (!hWnd) return FALSE;
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
+	return TRUE; }
 
-	return TRUE;
-}
-
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE: Processes messages for the main window.
-//
-//  WM_COMMAND  - process the application menu
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
-//
-//
-
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	HWND hChild;
 	HDC hDC, hCompatibleDC;
 	PAINTSTRUCT PaintStruct;
@@ -171,7 +130,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		wc.wrongKeys = 0;
 		_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
 		SetWindowText(hWnd, title);
-
 		for (int i = 0, j = 97; i < 26; i++, j++) {
 			s[i] = j;
 		}
@@ -179,52 +137,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_TIMER: {
 		if (wParam == 5) {
-			unsigned int randLetter;
-			rand_s(&randLetter);
-			randLetter = (unsigned int)((double)randLetter / ((double)UINT_MAX + 1) * 26);
-			unsigned int ySpeed;
-			rand_s(&ySpeed);
-			ySpeed = (unsigned int)((double)ySpeed / ((double)UINT_MAX + 1) * 35.0) + 5;
-
-			cWin cw;
 			RECT rc;
 			GetWindowRect(hWnd, &rc);
 			int width = rc.right - rc.left - 50;
-			unsigned int xPos;
-			rand_s(&xPos);
-			xPos = (unsigned int)((double)xPos / ((double)UINT_MAX + 1) * width) + 1;
+			unsigned int randLetter = rand(0, 26);
+			unsigned int ySpeed = rand(5, 25);
+			unsigned int xPos = rand(1, width);
+			cWin cw;
 			hChild = CreateWindow(szChildClass, NULL, WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN, xPos, 0, 25, 25, hWnd, NULL, hInst, NULL);
 			cw.childWin = hChild;
 			cw.letter = randLetter;
 			cw.ySpeed = ySpeed;
-
-			cWindows.push_back(cw);
-		}
-		unsigned int delay;
-		rand_s(&delay);
-		delay = (unsigned int)((double)delay / ((double)UINT_MAX + 1) * 1000.0) + 250;
+			cWindows.push_back(cw); }
+		unsigned int delay = rand(250, 750);
 		KillTimer(hWnd, 5);
 		SetTimer(hWnd, 5, delay, NULL);
-		break;
-	}
-	case WM_CHAR:
-	{
+		break; }
+	case WM_CHAR: {
 		if ((int)wParam >= 97 && (int)wParam <= 122) {
 			if (lowestCWindows[(int)wParam - 97].childWin) {
 				DestroyWindow(lowestCWindows[(int)wParam - 97].childWin);
 				lowestCWindows[(int)wParam - 97].childWin = NULL;
-				lowestCWindows[(int)wParam - 97].yPos = 0;
-			}
+				lowestCWindows[(int)wParam - 97].yPos = 0; }
 			else {
 				wc.wrongKeys++;
 				_stprintf_s(title, 256, L"Keyboard Master: WinAPI_2021, Missed: %d, Wrong keys: %d", wc.missed, wc.wrongKeys);
-				SetWindowText(hWnd, title);
-			}
-		}
-		break;
-	}
-	case WM_RBUTTONDOWN:
-	{
+				SetWindowText(hWnd, title); } }
+		break; }
+	case WM_RBUTTONDOWN: {
 		wc.wrongKeys--;
 		HMENU hPopupMenu = CreatePopupMenu();
 		POINT cursor;
@@ -236,26 +176,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		InsertMenu(hPopupMenu, 0, MF_STRING | MF_DISABLED, IDM_STRETCH, L"Stretch\tCtrl+S");
 		SetForegroundWindow(hWnd);
 		TrackPopupMenu(hPopupMenu, TPM_LEFTBUTTON, cursor.x, cursor.y, 0, hWnd, NULL);
-		break;
-	}
+		break; }
 	case WM_KILLFOCUS:
 		KillTimer(hWnd, 5);
 		for (auto it : cWindows) {
-			SendMessage(it.childWin, 666, NULL, NULL);
-		}
+			SendMessage(it.childWin, ID_FREEZE, NULL, NULL); }
 		break;
 	case WM_SETFOCUS:
 		SetTimer(hWnd, 5, 1000, NULL);
 		for (auto it : cWindows) {
-			SendMessage(it.childWin, 6666, NULL, NULL);
-		}
+			SendMessage(it.childWin, ID_UNFREEZE, NULL, NULL); }
 		break;
-	case WM_COMMAND:
-	{
+	case WM_COMMAND: {
 		int wmId = LOWORD(wParam);
-		// Parse the menu selections:
-		switch (wmId)
-		{
+		switch (wmId) {
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
@@ -264,8 +198,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDM_NEWGAME:
 			for (auto it : cWindows) {
-				DestroyWindow(it.childWin);
-			}
+				DestroyWindow(it.childWin); }
 			cWindows.clear();
 			wc.missed = 0;
 			wc.wrongKeys = 0;
@@ -276,14 +209,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			OPENFILENAME ofn;       // common dialog box structure
 			char szFile[260];       // buffer for file name
 			HANDLE hf;              // file handle
-
-			// Initialize OPENFILENAME
 			ZeroMemory(&ofn, sizeof(ofn));
 			ofn.lStructSize = sizeof(ofn);
 			ofn.hwndOwner = hWnd;
 			ofn.lpstrFile = (LPWSTR)szFile;
-			// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
-			// use the contents of szFile to initialize itself.
 			ofn.lpstrFile[0] = '\0';
 			ofn.nMaxFile = sizeof(szFile);
 			ofn.lpstrFilter = L"Bitmap files (*.bmp)\0*.bmp";
@@ -292,31 +221,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			ofn.nMaxFileTitle = 0;
 			ofn.lpstrInitialDir = NULL;
 			ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
-			// Display the Open dialog box. 
-
 			if (GetOpenFileName(&ofn) == TRUE) {
 				hf = CreateFile(ofn.lpstrFile, GENERIC_READ, 0, (LPSECURITY_ATTRIBUTES)NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, (HANDLE)NULL);
 				HBITMAP hBMP = (HBITMAP)LoadImage(NULL, ofn.lpstrFile, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-
-				break;
-			}
-
+				break; }
 			break;
 		case IDM_PAUSE:
 			if (pauseTimer == false) {
 				KillTimer(hWnd, 5);
-				for (auto it : cWindows) {
-					SendMessage(it.childWin, 666, NULL, NULL);
-				}
+				for (auto it : cWindows) SendMessage(it.childWin, ID_FREEZE, NULL, NULL);
 				pauseTimer = true;
 				break;
 			}
 			else {
 				SetTimer(hWnd, 5, 1000, NULL);
-				for (auto it : cWindows) {
-					SendMessage(it.childWin, 6666, NULL, NULL);
-				}
+				for (auto it : cWindows) SendMessage(it.childWin, ID_UNFREEZE, NULL, NULL);
 				pauseTimer = false;
 				break;
 			}
@@ -326,22 +245,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			static COLORREF acrCustClr[16]; // array of custom colors 
 			HBRUSH hbrush;                  // brush handle
 			static DWORD rgbCurrent;        // initial color selection
-
-			// Initialize CHOOSECOLOR 
 			ZeroMemory(&cc, sizeof(cc));
 			cc.lStructSize = sizeof(cc);
 			cc.hwndOwner = hWnd;
 			cc.lpCustColors = (LPDWORD)acrCustClr;
 			cc.rgbResult = rgbCurrent;
 			cc.Flags = CC_FULLOPEN | CC_RGBINIT;
-
-			if (ChooseColor(&cc) == TRUE)
-			{
+			if (ChooseColor(&cc) == TRUE) {
 				hbrush = CreateSolidBrush(cc.rgbResult);
 				SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR(hbrush)));
-				InvalidateRect(hWnd, NULL, TRUE);
-			}
-
+				InvalidateRect(hWnd, NULL, TRUE); }
 			break;
 		}
 		default:
@@ -359,7 +272,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-	int letter = 0, ySpeed = rand() % 25;
+	int letter = 0;
+	unsigned int ySpeed = rand(5, 25);
 	for (auto it : cWindows) {
 		if (it.childWin == hWnd) {
 			letter = it.letter;
@@ -381,10 +295,6 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 			GetClientRect(hWnd, &rc);
 			MapWindowPoints(hWnd, GetParent(hWnd), (LPPOINT)&rc, 2);
 			int yPos = rc.top + 1;
-			//if (yPos > cWindows[rl].yPos) {
-			//	cWindows[rl].childWin = hWnd;
-			//	cWindows[rl].yPos = yPos;
-			//}
 			if (lowestCWindows[letter].childWin) {
 				if (yPos > lowestCWindows[letter].yPos) {
 					lowestCWindows[letter].childWin = hWnd;
@@ -408,12 +318,12 @@ LRESULT CALLBACK ChildWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
 		}
 		break;
 	}
-	case 6666:
+	case ID_UNFREEZE:
 	{
 		SetTimer(hWnd, 1, ySpeed, NULL);
 		break;
 	}
-	case 666:
+	case ID_FREEZE:
 	{
 		KillTimer(hWnd, 1);
 		break;
@@ -449,4 +359,11 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+unsigned int rand(double lowerBound, double upperBound) {
+	unsigned int r;
+	rand_s(&r);
+	r = (unsigned int)((double)r / ((double)UINT_MAX + 1) * upperBound) + lowerBound;
+	return r;
 }
